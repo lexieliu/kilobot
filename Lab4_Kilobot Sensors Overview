@@ -34,7 +34,7 @@ if (simGetScriptExecutionCount()==0) then
 	sensorHandle=simGetObjectHandle("Kilobot_Proximity_sensor")
 	BaseHandle=simGetObjectHandle("BatHold")
 
-
+	visionHandle=simGetObjectHandle("Vision_sensor")
 	--BatGraphHandle=simGetObjectHandle("BatGraph") -- should be uncommented only for one robot
 
 	half_diam=0.0165 -- half_diameter of the robot base
@@ -105,7 +105,73 @@ if (simGetScriptExecutionCount()==0) then
 	--//so the special message controller can also run
 	--/////////////////////////////////////////////////////////////////////////////////////
 
+	--/////////////////////////////////////////////////////////////////////////////////////
+	--//
+	--//  In the example below, the robot moves and display its id, ambient_light and its neighbor's id
+	--//  to other robots with its color led.
+	--//  
+	--////////////////////////////////////////////////////////////////////////////////////
 
+		simAddStatusbarMessage(simGetScriptName(sim_handle_self).." ambient light:"..get_ambient_light())
+		kprints(simGetScriptName(sim_handle_self).." ambient light:"..get_ambient_light())
+		-- Set speed
+		-- set_motor(cw_in_place,0)
+		--set_motor(cw_in_straight,ccw_in_straight)
+		 
+		-- send message
+		-- message_out(2,3,4)
+
+		kprints("          ")
+			--// Print robot id
+		kprints(simGetScriptName(sim_handle_self).." own id:  "..robot_id)
+
+		message_out(PGMCODE,robot_id,0)--//set message to be sent over IR
+		enable_tx=1  --//enable transmission of message every .2 seconds
+
+		
+	
+				--//check for message
+				-- _delay_ms(10) --//wait 10 ms : too low to wait in simulation
+		get_message()
+
+		if((message_rx[6]==1) and (message_rx[1] == PGMCODE)) then --//new message has been received
+				 
+			kprints(simGetScriptName(sim_handle_self).." other id:   "..message_rx[2].." at dist: "..message_rx[4]);
+	
+			set_color(0,0,0) --//turn RGB LED white
+			message_rx[6] = 0
+		end
+
+		-- get distance to nearest obsctacle
+		result,distance,detectedPoint,detectedObjectHandle,detectedSurfaceNormalVector=simReadProximitySensor(sensorHandle)
+
+		if (distance ~= nil)  then 
+			distance= distance + half_diam
+			nameSuffix,kname=simGetNameSuffix(simGetObjectName(detectedObjectHandle))
+			-- if the obstacle is another robot, light up the robot	
+			if ((kname== "BatHold") or (kname== "Base")) then
+			  	if(distance < 0.033) then
+					set_color(3,3,3) --turn RGB LED White
+				elseif(distance < 0.040) then
+					set_color(3,0,0) --turn RGB LED Red
+				elseif(distance < 0.050) then
+				  set_color(3,3,0) --turn RGB LED Orange
+				elseif(distance < 0.060) then
+				  set_color(0,3,0) --turn RGB LED Green
+				elseif(distance < 0.070) then			
+				  set_color(0,3,1) --turn RGB LED Turquoise
+				elseif(distance < 0.080) then
+					set_color(0,0,3) --turn RGB LED Blue
+				elseif(distance < 0.090) then
+					set_color(3,0,3) --turn RGB LED Violet					
+				else
+					set_color(0,0,0)	 
+				end 	
+			end
+		else
+			set_color(0,0,0)
+		end
+  
 	
 	--////////////////////////////////////////////////////////////////////////////////////
 	--//END OF USER CODE
@@ -278,14 +344,16 @@ if (simGetScriptExecutionCount()==0) then
 
 
 
-	-------------------------------------------------
-	-- not implemented functions:
 
-	-- Returns the value of ambient light
-	--  note: will return -1 if there is an incoming message (which also uses a/d)
-	--  note: turns off interrupts for a short while to sample a/d 
+    -- Returns the value of ambient light
 	function get_ambient_light()
-		return -1
+		result,auxValues1,auxValues2=simReadVisionSensor(visionHandle)
+		if (auxValues1) then
+			
+			return auxValues1[11] -- return average intensity
+		else
+			return -1
+		end
 	end
 
 	-------------------------------------------------
